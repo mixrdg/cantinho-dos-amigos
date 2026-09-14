@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1, viewport-fit=cover">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <title>Cantinho dos Amigos — Início</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="logo" href="index.html" aria-label="Cantinho dos Amigos"><img src="logo.png" alt="Cantinho dos Amigos"></a>
+  <nav><a href="index.html">Início</a><a href="#salas">Salas</a><a href="login.html">Entrar</a></nav>
+</header>
+<main>
+  <section class="hero">
+    <div>
+      <p class="eyebrow">LIVE • SOCIAL • REAL TIME</p>
+      <h1>Entre ao vivo.<br><span>Conecte pessoas.</span></h1>
+      <p class="lead">Crie uma sala, compartilhe sua câmera, microfone ou tela e converse em tempo real.</p>
+      <div class="actions">
+        <a class="btn primary" href="sala.html">Criar uma sala</a>
+        <button class="btn ghost" id="joinBtn">Entrar em sala</button>
+      </div>
+    </div>
+    <div class="orb"><div class="orb-inner">GO<br><small>LIVE</small></div></div>
+  </section>
+  <section id="salas" class="section">
+    <div class="section-head"><div><p class="eyebrow">AO VIVO AGORA</p><h2>Salas públicas</h2></div><button class="btn ghost" id="refreshBtn">Atualizar</button></div>
+    <div id="rooms" class="room-grid"><div class="empty">Carregando salas...</div></div>
+  </section>
+</main>
+<footer>Cantinho dos Amigos • Projeto educacional</footer>
+<script src="js/app.js"></script>
+</body>
+</html>

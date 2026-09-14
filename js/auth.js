@@ -1,0 +1,1 @@
+document.querySelector('#loginForm').addEventListener('submit',e=>{e.preventDefault();const user={name:document.querySelector('#name').value.trim(),email:document.querySelector('#email').value.trim()};localStorage.setItem('cantinho_user',JSON.stringify(user));document.querySelector('#loginMsg').textContent='Login salvo. Entrando...';setTimeout(()=>location.href='sala.html',500)})
