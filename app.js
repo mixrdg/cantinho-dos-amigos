@@ -1,3 +1,5 @@
+const BACKEND_URL = "https://cantinho-dos-amigos-1.onrender.com";
+const WS_URL = "wss://https://cantinho-dos-amigos-1.onrender.com/ws";
 const params = new URLSearchParams(location.search);
 const state = {
   id:null,name:"",room:"",ws:null,
