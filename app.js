@@ -11,10 +11,9 @@ const RTC_CONFIG={iceServers:[
   {urls:"stun:stun1.l.google.com:19302"}
 ]};
 function esc(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));}
-// Servidor de produção no Render. No desenvolvimento local, use http://localhost:10000.
-const SERVER_URL = "https://cantinho-dos-amigos.onrender.com";
-function wsUrl(){const u=new URL(SERVER_URL);u.protocol=u.protocol==="https:"?"wss:":"ws:";u.pathname="/ws";return u.toString();}
-function apiUrl(path){return `${SERVER_URL}${path}`;}
+const SERVER_URL="https://cantinho-dos-amigos.onrender.com";
+function wsUrl(){return SERVER_URL.replace(/^http/,"ws")+"/ws";}
+function apiUrl(path){return SERVER_URL+path;}
 function send(data){if(state.ws?.readyState===WebSocket.OPEN)state.ws.send(JSON.stringify(data));}
 function system(t){$("messages").insertAdjacentHTML("beforeend",`<div class="system">${esc(t)}</div>`);$("messages").scrollTop=$("messages").scrollHeight;}
 function chat(n,t){$("messages").insertAdjacentHTML("beforeend",`<div class="message"><b>${esc(n)}</b><p>${esc(t)}</p></div>`);$("messages").scrollTop=$("messages").scrollHeight;}
@@ -39,13 +38,11 @@ async function createPeer(peerId){
   if(state.peers.has(peerId))return state.peers.get(peerId);
   const pc=new RTCPeerConnection(RTC_CONFIG);
   state.peers.set(peerId,pc);
-  // Mantemos m-lines estáveis para vídeo/áudio e mudamos recvonly <-> sendrecv conforme necessário.
-  const videoTransceiver=pc.addTransceiver("video",{direction:"recvonly"});
-  const audioTransceiver=pc.addTransceiver("audio",{direction:"recvonly"});
+  // Sempre recebemos vídeo/áudio, mesmo antes de alguém transmitir.
+  pc.addTransceiver("video",{direction:"recvonly"});
+  pc.addTransceiver("audio",{direction:"recvonly"});
   for(const track of state.localTracks.values()){
-    const tr=track.kind==="video"?videoTransceiver:audioTransceiver;
-    tr.sender.replaceTrack(track);
-    tr.direction="sendrecv";
+    pc.addTrack(track,mediaStream());
   }
   pc.onicecandidate=e=>{if(e.candidate)send({type:"ice",to:peerId,candidate:e.candidate});};
   pc.ontrack=e=>{
@@ -75,8 +72,8 @@ async function addLocalTrack(track,stream){
   track.onended=()=>{if(state.localTracks.get(track.kind)===track){state.localTracks.delete(track.kind);state.localStreams.delete(track.kind);refreshLocalTile();renegotiateAll();}};
   refreshLocalTile();
   for(const [id,pc] of state.peers){
-    const tr=pc.getTransceivers().find(t=>t.receiver?.track?.kind===track.kind);
-    if(tr){await tr.sender.replaceTrack(track);tr.direction="sendrecv";} else {pc.addTrack(track,mediaStream());}
+    const sender=pc.getSenders().find(s=>s.track?.kind===track.kind);
+    if(sender)await sender.replaceTrack(track); else pc.addTrack(track,mediaStream());
   }
   await renegotiateAll();
 }
@@ -93,7 +90,7 @@ function stopMedia(){
   for(const track of state.localTracks.values())track.stop();
   state.localTracks.clear();state.localStreams.clear();refreshLocalTile();
   $("screen").classList.remove("active");$("camera").classList.remove("active");$("mic").classList.remove("active");
-  for(const pc of state.peers.values())for(const tr of pc.getTransceivers())if(tr.receiver?.track?.kind){tr.sender.replaceTrack(null).catch(()=>{});tr.direction="recvonly";}
+  for(const pc of state.peers.values())for(const sender of pc.getSenders())if(sender.track)sender.replaceTrack(null).catch(()=>{});
   renegotiateAll();
 }
 async function toggleMic(){
@@ -118,12 +115,26 @@ async function handle(m){
   if(m.type==="error")system(m.message);
 }
 function connect(){
-  state.ws=new WebSocket(wsUrl());
-  state.ws.onopen=()=>{$("status").textContent="Online";$("join").style.display="flex";};
-  state.ws.onmessage=e=>{try{handle(JSON.parse(e.data));}catch(err){console.error(err);}};
-  state.ws.onclose=()=>{$("status").textContent="Desconectado";system("Conexão encerrada. Recarregue a página para tentar novamente.");};
-  state.ws.onerror=()=>{$("status").textContent="Erro de conexão";};
+  try{
+    state.ws=new WebSocket(wsUrl());
+    state.ws.onopen=()=>{
+      $("status").textContent="Servidor online";
+      $("join").style.display="flex";
+      system("Servidor conectado. Você já pode entrar ou criar uma sala privada.");
+    };
+    state.ws.onmessage=e=>{try{handle(JSON.parse(e.data));}catch(err){console.error(err);}};
+    state.ws.onclose=()=>{
+      $("status").textContent="Servidor offline";
+      system("Servidor desconectado. Confira o Render e tente novamente.");
+    };
+    state.ws.onerror=()=>{
+      $("status").textContent="Erro no servidor";
+    };
+  }catch(e){
+    $("status").textContent="Erro no servidor";
+  }
 }
+
 async function createPrivateRoom(){
   try{
     const r=await fetch(apiUrl("/api/rooms/create"),{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
@@ -134,7 +145,7 @@ async function createPrivateRoom(){
     alert(`Sala privada criada!\n\nCódigo: ${data.room}\n\nO link foi copiado quando permitido pelo navegador.`);
   }catch(e){alert("Não foi possível criar a sala privada. Verifique se o servidor está online.");}
 }
-$("joinBtn").onclick=()=>{const name=$("name").value.trim()||"Convidado";const room=$("room").value.trim().replace(/[^a-zA-Z0-9_-]/g,"").slice(0,32);if(room.length<3)return alert("Use pelo menos 3 caracteres na sala.");state.name=name;state.room=room;localStorage.setItem("ca_name",name);history.replaceState(null,"",`?room=${encodeURIComponent(room)}`);$("join").style.display="none";send({type:"join",room,name});};
+$("joinBtn").onclick=()=>{const name=$("name").value.trim()||"Convidado";const room=$("room").value.trim().replace(/[^a-zA-Z0-9_-]/g,"").slice(0,32);if(room.length<3)return alert("Use pelo menos 3 caracteres na sala.");state.name=name;state.room=room;localStorage.setItem("ca_name",name);history.replaceState(null,"",`?room=${encodeURIComponent(room)}`);if(state.ws?.readyState!==WebSocket.OPEN){alert("O servidor ainda não está conectado. Abra o Render, aguarde o status Live e tente novamente.");return;}$("join").style.display="none";send({type:"join",room,name});};
 $("createPrivate").onclick=createPrivateRoom;
 $("name").value=localStorage.getItem("ca_name")||"";$("room").value=params.get("room")||"";
 $("camera").onclick=startCamera;$("screen").onclick=startScreen;$("stop").onclick=stopMedia;$("mic").onclick=toggleMic;
@@ -142,3 +153,18 @@ $("copyLink").onclick=async()=>{try{await navigator.clipboard.writeText(location
 $("chatForm").onsubmit=e=>{e.preventDefault();const i=$("message"),t=i.value.trim();if(t){send({type:"chat",text:t});i.value="";}};
 window.addEventListener("beforeunload",()=>{for(const pc of state.peers.values())pc.close();for(const t of state.localTracks.values())t.stop();});
 connect();
+
+/* Responsive extras: fullscreen, top ticker, room entry/exit sounds and mobile chat */
+const caTicker=document.getElementById("messageTickerText");let caTickerTimer;
+function showTopMessage(text){if(!caTicker)return;caTicker.textContent=text;caTicker.classList.remove("play");void caTicker.offsetWidth;caTicker.classList.add("play");clearTimeout(caTickerTimer);caTickerTimer=setTimeout(()=>caTicker.classList.remove("play"),7200)}
+let caAudioCtx=null;
+function caSound(kind="in"){try{if(!caAudioCtx)caAudioCtx=new(window.AudioContext||window.webkitAudioContext)();if(caAudioCtx.state==="suspended")caAudioCtx.resume();const n=caAudioCtx.currentTime,o=caAudioCtx.createOscillator(),g=caAudioCtx.createGain();o.type="sine";o.frequency.setValueAtTime(kind==="in"?740:420,n);o.frequency.exponentialRampToValueAtTime(kind==="in"?1040:260,n+.12);g.gain.setValueAtTime(.0001,n);g.gain.exponentialRampToValueAtTime(.055,n+.015);g.gain.exponentialRampToValueAtTime(.0001,n+.16);o.connect(g);g.connect(caAudioCtx.destination);o.start(n);o.stop(n+.17)}catch(_){}}
+function caEnableAudio(){try{if(!caAudioCtx)caAudioCtx=new(window.AudioContext||window.webkitAudioContext)();if(caAudioCtx.state==="suspended")caAudioCtx.resume()}catch(_){}}
+["click","touchstart","keydown"].forEach(e=>document.addEventListener(e,caEnableAudio,{once:true,passive:true}));
+const caFullscreen=document.getElementById("fullscreen");
+if(caFullscreen){caFullscreen.addEventListener("click",async()=>{try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen()}catch(_){showTopMessage("Tela cheia não foi permitida pelo navegador.")}});document.addEventListener("fullscreenchange",()=>caFullscreen.textContent=document.fullscreenElement?"✕ Sair":"⛶ Tela cheia")}
+const caChatToggle=document.getElementById("chatToggle"),caChatPanel=document.getElementById("chatPanel")||document.querySelector(".chat-panel")||document.querySelector(".chat");
+if(caChatToggle&&caChatPanel)caChatToggle.addEventListener("click",()=>{caChatPanel.classList.toggle("chat-open");if(caChatPanel.classList.contains("chat-open")){const i=caChatPanel.querySelector("input,textarea");if(i&&matchMedia("(max-width:800px)").matches)i.focus()}});
+if(typeof window.system==="function"){const caOriginalSystem=window.system;window.system=function(text,...rest){caOriginalSystem.call(this,text,...rest);if(typeof text==="string"&&/(entrou|saiu|deixou a sala)/i.test(text)){showTopMessage(text);caSound(/saiu|deixou/i.test(text)?"out":"in")}}}
+const caObserver=new MutationObserver(ms=>{for(const m of ms)for(const node of m.addedNodes||[]){if(!(node instanceof HTMLElement))continue;const t=(node.innerText||node.textContent||"").trim();if(t&&t.length<180&&/(entrou|saiu|deixou a sala)/i.test(t)){showTopMessage(t);caSound(/saiu|deixou/i.test(t)?"out":"in")}}});
+caObserver.observe(document.body,{childList:true,subtree:true});

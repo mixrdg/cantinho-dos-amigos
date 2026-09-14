@@ -1,78 +1,50 @@
 # Cantinho dos Amigos — GitHub Pages + Render
 
-Projeto preparado para usar:
+Projeto com frontend estático no GitHub Pages e servidor Node.js/WebSocket no Render.
 
-- **Frontend:** GitHub Pages — `https://mixrdg.github.io/cantinho-dos-amigos/`
-- **Backend:** Render — `https://cantinho-dos-amigos.onrender.com`
-- **WebSocket:** `wss://cantinho-dos-amigos.onrender.com/ws`
+## URLs
 
-## 1. Publicar o backend no Render
+Frontend:
+https://mixrdg.github.io/cantinho-dos-amigos/
 
-No Render, crie um **Web Service** conectado ao repositório `mixrdg/cantinho-dos-amigos`.
+Backend esperado:
+https://cantinho-dos-amigos.onrender.com
 
-Configuração:
+WebSocket:
+wss://cantinho-dos-amigos.onrender.com/ws
 
-- Runtime: **Node**
-- Build Command: `npm install`
-- Start Command: `npm start`
-- Plano: **Free** (para começar)
-- Health Check Path: `/health`
+## Deploy no Render
 
-O arquivo `render.yaml` também deixa essas configurações registradas no projeto.
+1. Conecte o repositório `mixrdg/cantinho-dos-amigos` ao Render.
+2. Crie um Web Service chamado `cantinho-dos-amigos`.
+3. Runtime: Node.
+4. Build Command: `npm install`.
+5. Start Command: `npm start`.
+6. Health Check Path: `/health`.
+7. Aguarde o serviço ficar `Live`.
 
-### Teste do servidor
+O arquivo `render.yaml` também contém essa configuração.
 
-Depois que o serviço ficar como **Live**, abra:
+## Importante
 
-`https://cantinho-dos-amigos.onrender.com/health`
+O frontend está configurado para usar o servidor Render em `https://cantinho-dos-amigos.onrender.com`. Se você escolher outro nome de serviço/URL, altere `SERVER_URL` no `app.js`.
 
-O resultado esperado é JSON com `ok: true` e `status: "online"`.
+## Funcionalidades
 
-## 2. Frontend no GitHub Pages
+- salas públicas e privadas por código;
+- chat em tempo real;
+- câmera e microfone;
+- compartilhamento de tela;
+- WebRTC entre participantes;
+- sinalização por WebSocket;
+- endpoint `/health` para o Render.
 
-O `app.js` deste pacote já está configurado para conversar com:
+Salas privadas são mantidas em memória e deixam de existir se o servidor reiniciar. Para produção, recomenda-se adicionar TURN para redes que não conseguem estabelecer WebRTC diretamente.
 
-`https://cantinho-dos-amigos.onrender.com`
 
-e com o WebSocket:
-
-`wss://cantinho-dos-amigos.onrender.com/ws`
-
-Portanto, depois de substituir os arquivos do repositório e aguardar o GitHub Pages atualizar, o endereço público continua:
-
-`https://mixrdg.github.io/cantinho-dos-amigos/`
-
-## 3. Funcionalidades
-
-- Salas com código
-- Criação de sala privada
-- Chat em tempo real
-- Câmera e microfone
-- Compartilhamento de tela
-- Vários participantes na mesma sala
-- WebRTC para mídia entre participantes
-- Sinalização por WebSocket
-- Link da sala para compartilhar
-
-## 4. Importante sobre WebRTC
-
-O projeto usa STUN público para descoberta de rede. Algumas redes corporativas, móveis ou com NAT restritivo podem exigir um servidor TURN para conexão de mídia mais confiável.
-
-As salas e seus códigos são mantidos em memória no servidor. Se o serviço reiniciar, as salas vazias deixam de existir.
-
-## 5. Desenvolvimento local
-
-```bash
-npm install
-npm start
-```
-
-Abra `http://localhost:10000`.
-
-Para desenvolvimento local, altere temporariamente `SERVER_URL` no `app.js` para:
-
-`http://localhost:10000`
-
-Antes de publicar novamente no GitHub Pages, volte para:
-
-`https://cantinho-dos-amigos.onrender.com`
+## Interface responsiva (nova versão)
+- Tela cheia.
+- Layout minimalista e responsivo para celular/desktop.
+- Chat de acesso rápido; no celular abre como painel flutuante.
+- Mensagens de entrada/saída passam no topo da direita para a esquerda.
+- Som curto quando alguém entra ou sai da sala.
