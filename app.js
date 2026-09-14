@@ -27,6 +27,22 @@ function makeTile(id,name,stream,local=false){
     $("grid").appendChild(tile);item={tile,video:tile.querySelector("video"),name};state.tiles.set(id,item);
   }
   item.video.srcObject=stream;
+  item.video.autoplay=true;
+  item.video.playsInline=true;
+  item.video.setAttribute("playsinline","");
+  item.video.setAttribute("webkit-playsinline","");
+  // Em celulares, alguns navegadores bloqueiam autoplay quando o stream tem áudio.
+  // Tentamos tocar normalmente e, se bloqueado, iniciamos a reprodução visualmente mutada.
+  const playVideo=()=>{
+    const p=item.video.play();
+    if(p&&typeof p.catch==="function")p.catch(()=>{
+      item.video.muted=true;
+      const retry=item.video.play();
+      if(retry&&typeof retry.catch==="function")retry.catch(()=>{});
+    });
+  };
+  if(item.video.readyState>=2)playVideo();
+  else item.video.onloadedmetadata=playVideo;
   $("empty").style.display="none";
   return item.video;
 }
@@ -79,9 +95,39 @@ async function addLocalTrack(track,stream){
 }
 async function renegotiateAll(){for(const id of state.peers.keys())await negotiate(id);}
 async function startCamera(){
-  try{const stream=await navigator.mediaDevices.getUserMedia({video:true,audio:true});await addLocalTrack(stream.getVideoTracks()[0],stream);await addLocalTrack(stream.getAudioTracks()[0],stream);$("camera").classList.add("active");$("mic").classList.add("active");system("Câmera e microfone ativados.");}
-  catch(e){system("Não foi possível acessar câmera/microfone. Verifique as permissões do navegador.");}
+  if(!window.isSecureContext || !navigator.mediaDevices?.getUserMedia){
+    system("Câmera e microfone precisam de HTTPS e de um navegador compatível. Abra pelo endereço HTTPS do site.");
+    alert("A câmera e o microfone só funcionam em HTTPS (ou localhost). Abra o Cantinho dos Amigos pelo endereço HTTPS.");
+    return;
+  }
+  try{
+    // Pede câmera e microfone juntos após um clique do usuário.
+    const stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:"user",width:{ideal:1280},height:{ideal:720}},
+      audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}
+    });
+    const video=stream.getVideoTracks()[0];
+    const audio=stream.getAudioTracks()[0];
+    if(video) await addLocalTrack(video,stream);
+    if(audio) await addLocalTrack(audio,stream);
+    if(video) $("camera").classList.add("active");
+    if(audio) { audio.enabled=true; $("mic").classList.add("active"); }
+    if(!video && !audio) throw new Error("Nenhum dispositivo de mídia foi disponibilizado.");
+    system(video&&audio?"Câmera e microfone ativados.":video?"Câmera ativada. O microfone não foi disponibilizado.":"Microfone ativado. A câmera não foi disponibilizada.");
+  }catch(e){
+    console.error("getUserMedia:",e);
+    const name=e?.name||"";
+    let msg="Não foi possível acessar câmera/microfone.";
+    if(name==="NotAllowedError"||name==="PermissionDeniedError") msg="Permissão negada. Clique no cadeado do navegador → permita Câmera e Microfone → recarregue a página e tente novamente.";
+    else if(name==="NotFoundError"||name==="DevicesNotFoundError") msg="Nenhuma câmera ou microfone foi encontrado no dispositivo.";
+    else if(name==="NotReadableError"||name==="TrackStartError") msg="A câmera ou o microfone está sendo usado por outro programa. Feche Zoom, Teams, Meet, OBS ou outro aplicativo e tente novamente.";
+    else if(name==="OverconstrainedError") msg="As configurações solicitadas não são compatíveis com o dispositivo. Tente novamente.";
+    else if(name==="SecurityError") msg="O navegador bloqueou o acesso por segurança. Use o site em HTTPS.";
+    system(msg);
+    alert(msg);
+  }
 }
+
 async function startScreen(){
   try{const stream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:true});await addLocalTrack(stream.getVideoTracks()[0],stream);const a=stream.getAudioTracks()[0];if(a)await addLocalTrack(a,stream);$("screen").classList.add("active");system("Sua tela está sendo compartilhada com a sala.");}
   catch(e){system("Compartilhamento de tela cancelado.");}
@@ -95,8 +141,28 @@ function stopMedia(){
 }
 async function toggleMic(){
   let track=state.localTracks.get("audio");
-  if(!track){await startCamera();track=state.localTracks.get("audio");}
-  if(track){track.enabled=!track.enabled;$("mic").classList.toggle("active",track.enabled);}
+  if(!track){
+    if(!window.isSecureContext || !navigator.mediaDevices?.getUserMedia){
+      system("O microfone precisa de HTTPS e de permissão do navegador.");
+      return;
+    }
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+      track=stream.getAudioTracks()[0];
+      if(track) await addLocalTrack(track,stream);
+    }catch(e){
+      console.error("getUserMedia audio:",e);
+      const msg=(e?.name==="NotAllowedError"||e?.name==="PermissionDeniedError")
+        ?"Permissão do microfone negada. Clique no cadeado do navegador e permita o Microfone."
+        :"Não foi possível acessar o microfone. Verifique se ele está conectado e não está sendo usado por outro programa.";
+      system(msg); alert(msg); return;
+    }
+  }
+  if(track){
+    track.enabled=!track.enabled;
+    $("mic").classList.toggle("active",track.enabled);
+    system(track.enabled?"Microfone ligado.":"Microfone desligado.");
+  }
 }
 async function handle(m){
   if(m.type==="welcome"){
@@ -162,7 +228,8 @@ function caSound(kind="in"){try{if(!caAudioCtx)caAudioCtx=new(window.AudioContex
 function caEnableAudio(){try{if(!caAudioCtx)caAudioCtx=new(window.AudioContext||window.webkitAudioContext)();if(caAudioCtx.state==="suspended")caAudioCtx.resume()}catch(_){}}
 ["click","touchstart","keydown"].forEach(e=>document.addEventListener(e,caEnableAudio,{once:true,passive:true}));
 const caFullscreen=document.getElementById("fullscreen");
-if(caFullscreen){caFullscreen.addEventListener("click",async()=>{try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen()}catch(_){showTopMessage("Tela cheia não foi permitida pelo navegador.")}});document.addEventListener("fullscreenchange",()=>caFullscreen.textContent=document.fullscreenElement?"✕ Sair":"⛶ Tela cheia")}
+const caVideoArea=document.getElementById("grid");
+if(caFullscreen&&caVideoArea){caFullscreen.addEventListener("click",async()=>{try{if(!document.fullscreenElement)await caVideoArea.requestFullscreen();else await document.exitFullscreen()}catch(_){showTopMessage("Não foi possível colocar o vídeo em tela cheia.")}});document.addEventListener("fullscreenchange",()=>caFullscreen.textContent=document.fullscreenElement===caVideoArea?"✕ Sair da tela cheia":"⛶ Tela cheia")}
 const caChatToggle=document.getElementById("chatToggle"),caChatPanel=document.getElementById("chatPanel")||document.querySelector(".chat-panel")||document.querySelector(".chat");
 if(caChatToggle&&caChatPanel)caChatToggle.addEventListener("click",()=>{caChatPanel.classList.toggle("chat-open");if(caChatPanel.classList.contains("chat-open")){const i=caChatPanel.querySelector("input,textarea");if(i&&matchMedia("(max-width:800px)").matches)i.focus()}});
 if(typeof window.system==="function"){const caOriginalSystem=window.system;window.system=function(text,...rest){caOriginalSystem.call(this,text,...rest);if(typeof text==="string"&&/(entrou|saiu|deixou a sala)/i.test(text)){showTopMessage(text);caSound(/saiu|deixou/i.test(text)?"out":"in")}}}
@@ -171,5 +238,4 @@ caObserver.observe(document.body,{childList:true,subtree:true});
 
 /* Emojis + mensagens recebidas no ticker */
 const caEmoji=document.getElementById("emojiButton"),caInput=document.getElementById("message")||document.getElementById("chatInput")||document.querySelector(".chat input")||document.querySelector(".chat textarea");
-if(caEmoji&&caInput){const p=document.createElement("div");p.className="emoji-picker";["😀","😂","😍","🥰","😎","🤩","😢","😡","😱","👏","👍","❤️","💜","💙","🔥","✨","🎉","🎮","🎵","👋","🙏","🤣","😉","🥳","🤝","💯","🚀"].forEach(e=>{const b=document.createElement("button");b.type="button";b.className="emoji-choice";b.textContent=e;b.onclick=()=>{const a=caInput.selectionStart??caInput.value.length,z=caInput.selectionEnd??caInput.value.length;caInput.value=caInput.value.slice(0,a)+e+caInput.value.slice(z);caInput.focus();caInput.setSelectionRange(a+e.length,a+e.length);p.classList.remove("open")};p.appendChild(b)});document.body.appendChild(p);caEmoji.onclick=()=>{const r=caEmoji.getBoundingClientRect();p.style.left=Math.max(8,r.left)+"px";p.style.top=Math.max(8,r.top-220)+"px";p.classList.toggle("open")}}
-const caReceivedObserver=new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(n=>{if(!(n instanceof HTMLElement))return;const t=(n.innerText||n.textContent||"").trim();if(t&&t.length<300&&!/^(enviando|conectando)/i.test(t)&&!/(entrou|saiu|deixou)/i.test(t))showTopMessage(t)})));caReceivedObserver.observe(document.body,{childList:true,subtree:true});
+if(caEmoji&&caInput){const p=document.createElement("div");p.className="emoji-picker";["😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","🙃","😉","😌","😍","🥰","😘","😗","😙","😚","😋","😛","😝","😜","🤪","🤨","🧐","🤓","😎","🤩","🥳","😏","😒","😞","😔","😟","😕","🙁","☹️","😣","😖","😫","😩","🥺","😢","😭","😤","😠","😡","🤬","🤯","😳","🥵","🥶","😱","😨","😰","😥","😓","🤗","🤔","🫡","🤭","🤫","🤥","😶","😐","😑","😬","🙄","😯","😦","😧","😮","😲","🥱","😴","🤤","😪","😵","🤐","🥴","🤢","🤮","🤧","😷","🤒","🤕","👍","👎","👌","✌️","🤞","🤟","🤘","🤙","👈","👉","👆","👇","☝️","✋","🤚","🖐️","🖖","👋","👏","🙌","👐","🤲","🙏","💪","🫶","❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","❣️","💕","💞","💓","💗","💖","💘","💝","💟","🔥","✨","⭐","🌟","💫","💥","🎉","🎊","🎈","🎁","🏆","🥇","⚽","🏀","🎮","🎵","🎶","🎸","🎬","📸","🚀","✈️","🌎","☀️","🌙","☁️","🌈","🍕","🍔","🍟","🌭","🍎","🍓","🍉","🍌","🍇","🍺","☕","🍻","😈","👿","💀","☠️","👻","👽","🤖","💯","✅","❌","⚡","💡","🔔","💬","📌","🎯","🛡️"].forEach(e=>{const b=document.createElement("button");b.type="button";b.className="emoji-choice";b.textContent=e;b.onclick=()=>{const a=caInput.selectionStart??caInput.value.length,z=caInput.selectionEnd??caInput.value.length;caInput.value=caInput.value.slice(0,a)+e+caInput.value.slice(z);caInput.focus();caInput.setSelectionRange(a+e.length,a+e.length);p.classList.remove("open")};p.appendChild(b)});document.body.appendChild(p);caEmoji.onclick=()=>{const r=caEmoji.getBoundingClientRect();p.style.left=Math.min(Math.max(8,r.left),Math.max(8,window.innerWidth-p.offsetWidth-8))+"px";p.style.top=Math.min(Math.max(8,r.top-p.offsetHeight-8),Math.max(8,window.innerHeight-p.offsetHeight-8))+"px";p.classList.toggle("open")}}
