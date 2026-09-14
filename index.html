@@ -1,36 +1,61 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1, viewport-fit=cover">
-  <link rel="icon" type="image/png" href="favicon.png">
-  <title>Cantinho dos Amigos — Início</title>
-  <link rel="stylesheet" href="css/style.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cantinho dos Amigos — Sala</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header class="topbar">
-  <a class="logo" href="index.html" aria-label="Cantinho dos Amigos"><img src="logo.png" alt="Cantinho dos Amigos"></a>
-  <nav><a href="index.html">Início</a><a href="#salas">Salas</a><a href="login.html">Entrar</a></nav>
+  <a class="logo" href="./">CANTINHO <span>DOS AMIGOS</span></a>
+  <div class="room-chip">SALA <b id="roomLabel">------</b></div>
 </header>
-<main>
-  <section class="hero">
-    <div>
-      <p class="eyebrow">LIVE • SOCIAL • REAL TIME</p>
-      <h1>Entre ao vivo.<br><span>Conecte pessoas.</span></h1>
-      <p class="lead">Crie uma sala, compartilhe sua câmera, microfone ou tela e converse em tempo real.</p>
-      <div class="actions">
-        <a class="btn primary" href="sala.html">Criar uma sala</a>
-        <button class="btn ghost" id="joinBtn">Entrar em sala</button>
+
+<main class="layout">
+  <section class="main">
+    <div class="toolbar">
+      <div><span class="dot"></span><span id="status">Conectando...</span></div>
+      <button id="copyLink" class="small">Copiar link da sala</button>
+    </div>
+    <div id="grid" class="video-grid">
+      <div id="empty" class="empty">
+        <div class="icon">◉</div>
+        <h1>Entre na sala e transmita</h1>
+        <p>Compartilhe sua tela ou câmera com os participantes em tempo real.</p>
       </div>
     </div>
-    <div class="orb"><div class="orb-inner">GO<br><small>LIVE</small></div></div>
+    <div class="controls">
+      <button id="screen" class="btn primary">▣ <span>Compartilhar tela</span></button>
+      <button id="camera" class="btn">● <span>Câmera</span></button>
+      <button id="mic" class="btn">🎙 <span>Microfone</span></button>
+      <button id="stop" class="btn danger">■ <span>Parar transmissão</span></button>
+    </div>
   </section>
-  <section id="salas" class="section">
-    <div class="section-head"><div><p class="eyebrow">AO VIVO AGORA</p><h2>Salas públicas</h2></div><button class="btn ghost" id="refreshBtn">Atualizar</button></div>
-    <div id="rooms" class="room-grid"><div class="empty">Carregando salas...</div></div>
-  </section>
+
+  <aside class="chat">
+    <div class="chat-head"><b>Chat da sala</b><span id="count">0 online</span></div>
+    <div id="messages" class="messages"><div class="system">Conectando à sala...</div></div>
+    <form id="chatForm">
+      <input id="message" maxlength="500" autocomplete="off" placeholder="Digite uma mensagem...">
+      <button>➤</button>
+    </form>
+  </aside>
 </main>
-<footer>Cantinho dos Amigos • Projeto educacional</footer>
-<script src="js/app.js"></script>
+
+<div id="join" class="modal">
+  <div class="modal-card">
+    <div class="logo big">CANTINHO <span>DOS AMIGOS</span></div>
+    <h2>Entrar na sala</h2>
+    <input id="name" maxlength="30" placeholder="Seu nome" autocomplete="nickname">
+    <input id="room" maxlength="32" placeholder="Código da sala">
+    <button id="joinBtn" class="btn primary full">Entrar na sala</button>
+    <button id="createPrivate" class="btn private full">🔒 Criar sala privada</button>
+    <p class="hint">Para uma sala privada, clique em <b>Criar sala privada</b>. O servidor gera um código único e difícil de adivinhar. Compartilhe o código ou o link somente com seus amigos.</p>
+  </div>
+</div>
+
+<footer>Cantinho dos Amigos • WebRTC + WebSocket</footer>
+<script src="app.js"></script>
 </body>
 </html>
