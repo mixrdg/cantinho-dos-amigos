@@ -48,3 +48,12 @@ Salas privadas são mantidas em memória e deixam de existir se o servidor reini
 - Chat de acesso rápido; no celular abre como painel flutuante.
 - Mensagens de entrada/saída passam no topo da direita para a esquerda.
 - Som curto quando alguém entra ou sai da sala.
+
+
+## Atualizações da interface
+- Tela cheia real pelo botão "⛶ Tela cheia".
+- Botão "💬 Chat" para abrir/fechar o chat em telas pequenas.
+- Mensagens de chat recebidas aparecem no topo e percorrem da esquerda para a direita até desaparecer.
+- Tema roxo, preto e azul.
+- Seletor de emojis no chat.
+- Layout responsivo para celular.

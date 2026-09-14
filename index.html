@@ -12,11 +12,12 @@
   <div class="room-chip">SALA <b id="roomLabel">------</b></div>
 </header>
 
+<div id="messageTicker" class="message-ticker" aria-live="polite"><div id="messageTickerText" class="message-ticker-text"></div></div>
 <main class="layout">
   <section class="main">
     <div class="toolbar">
       <div><span class="dot"></span><span id="status">Conectando...</span></div>
-      <button id="copyLink" class="small">Copiar link da sala</button>
+      <div style="display:flex;gap:7px;flex-wrap:wrap"><button id="fullscreen" class="small">⛶ Tela cheia</button><button id="chatToggle" class="small">💬 Chat</button><button id="copyLink" class="small">Copiar link da sala</button></div>
     </div>
     <div id="grid" class="video-grid">
       <div id="empty" class="empty">

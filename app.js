@@ -111,7 +111,7 @@ async function handle(m){
   }
   if(m.type==="answer"){const pc=state.peers.get(m.from);if(pc)try{await pc.setRemoteDescription(m.description);}catch(e){}return;}
   if(m.type==="ice"){const pc=await createPeer(m.from);try{if(pc.remoteDescription)await pc.addIceCandidate(m.candidate);else{if(!state.pendingIce.has(m.from))state.pendingIce.set(m.from,[]);state.pendingIce.get(m.from).push(m.candidate);}}catch(e){}return;}
-  if(m.type==="chat")return chat(m.name,m.text);
+  if(m.type==="chat"){ chat(m.name,m.text); showTopMessage(`${m.name}: ${m.text}`); return; }
   if(m.type==="error")system(m.message);
 }
 function connect(){
